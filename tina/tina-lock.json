@@ -5,7 +5,7 @@
 		"collections": [
 			{
 				"name": "post",
-				"label": "Blog Posting",
+				"label": "Blog Post",
 				"path": "src/content/blog",
 				"format": "mdx",
 				"fields": [
