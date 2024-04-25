@@ -61,6 +61,8 @@ const disqusEnabled = disqusConfig.enabled
 
 			<!-- related posts -->
 			<footer>
+				<div class='giscus' id='COMMENT'></div>
+				<br />
 				<h2 class='font-bold text-lg dark:text-white mb-6'>Related Posts</h2>
 				<ListRelatedPosts posts={relatedPosts} />
 			</footer>
@@ -69,3 +71,20 @@ const disqusEnabled = disqusConfig.enabled
 
 	{disqusEnabled && <Disqus />}
 </BlogPost>
+
+<script
+	src='https://giscus.app/client.js'
+	data-repo='bloodnighttw/blog'
+	data-repo-id='R_kgDOLy9G6w'
+	data-category='General'
+	data-category-id='DIC_kwDOLy9G684Ce76E'
+	data-mapping='pathname'
+	data-strict='0'
+	data-reactions-enabled='1'
+	data-emit-metadata='0'
+	data-input-position='bottom'
+	data-theme='transparent_dark'
+	data-lang='zh-TW'
+	crossorigin='anonymous'
+	async
+></script>
