@@ -1,0 +1,52 @@
+---
+heroImage: /src/assets/images/rustacean-banner.png
+category: Rust
+description: rust 的相關紀錄
+pubDate: 2024-04-25T16:00:00.000Z
+tags:
+  - rust-lang
+  - rust
+title: 0. Rust Hello World
+---
+
+就最近想到，來利用此blog紀錄我學rust的相關概念。
+
+另外我自己是使用中文教學來學，有需要的朋友可以點開剛剛下面的連結。\
+
+[這邊是中文教學。](https://rust-lang.tw/book-tw/)
+
+[這裡是儲存庫](https://github.com/bloodnighttw/rust-learning)
+
+# hello world
+
+```rust
+#[cfg(test)]
+mod hello_world {
+    #[test]
+    fn run() {
+        println!("hello world");
+    }
+}
+```
+
+# if else
+
+```rust
+#[cfg(test)]
+mod if_else {
+
+    #[test]
+    fn run() {
+
+        let i = 0;
+
+        if i == 1{
+            println!("1")
+        }else {
+            println!("2")
+        }
+
+    }
+}
+
+```
