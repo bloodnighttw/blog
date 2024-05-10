@@ -1,0 +1,312 @@
+---
+heroImage: /src/assets/images/rustacean-banner.png
+category: Rust
+description: Rust Ownership
+pubDate: 2024-05-10T16:00:00.000Z
+tags:
+  - Rust
+  - Ownership
+title: Rust Ownership之筆記
+---
+
+## 前言
+
+Rust其中一個特別的特色,就是他使用Ownership來作記憶體管理,這點使他與C語言寫起來的感覺不一樣。我想透過此篇來整理一下相關思路。
+
+## Ownership
+
+這邊只要記住一個原則，一個變數只有一個主人，變數的所有權可以轉移，但如果主人消失，他擁有的東西也會消失！
+
+```rust
+fn main(){
+  let i;
+  {
+    let j = String::from("hello world");
+    i = j; // move ownership to i
+  }
+  // i is vaild here, but j is invaild here!
+}
+```
+
+## Stack and Heap
+
+這邊算是作業系統的範疇，當一個程式啟動時，會有許多分區，用於儲存不同性質的資料、程式，而上面這兩者最大的區別是:
+
+1. Stack 是儲存大小固定的資料，Heap則是可以動態的分配記憶體空間，以儲存不固定大小的資料。
+2. Stack上的資料存取會比Heap快一點
+
+這邊舉個例子好了,當今天使用者輸入一個整數，他會儲存在 Stack ，而如果今天使用者輸入了\*\*一串(無法在編譯時知道大小)\*\*文字，他則會儲存在Heap上。
+
+Rust在處理不同類型的資料時，處理方式會不太一樣，下方式範例:
+
+```rust
+fn main(){
+  let i = String::from("hello world");
+  let j = i;
+  // j take i ownership, can't use i here!
+}
+```
+
+這邊我們宣告了一個儲存在heap上的stack的字串i，而因為是heap的資料，所以 j = i 讓 j 去 **奪取** i 的所有權！
+
+```rust
+fn main(){
+  let i = 0;
+  let j = i;
+}
+```
+
+這邊宣告了一個儲存在stack上的整數 i，而 因為i是stack的資料，所以讓j = i 時去讓 j 複製 i 。
+
+那我們要如何讓編譯器知道，我們自己寫的struct不會有資料方在heap上？
+
+答案就是 Copy trait，有了這東西，編譯器可以知道這東西可以直接copy資料 (like memcpy in c)，他同時還會檢查這個struct是否有東西是會放在Heap的!而用法如下:
+
+```rust
+#[derive(Copy,Clone)] // copy require clone
+ struct Example1 {
+    id: u32,
+} // vaild here
+
+#[derive(Copy,Clone)] // copy require clone
+ struct Example2 {
+    id: String,
+} // invaild here because String is not store all in stack!
+```
+
+那接下來會著重在那些不會複製的變數上。
+
+## 常見的狀況
+
+```rust
+fn test(temp:String){
+  println!("{}",temp.len())
+}
+
+fn main(){
+  let j = String::from("hello world");
+  test(j)
+  // j is invaild here
+}
+```
+
+會造成這樣的狀況的原因，是因為傳test(j)時 ， j的所有權轉移到temp身上，而當test()結束執行時，temp消失不見了,他並不會返還所有權,那有什麼狀況可以 借 之後 在返還嗎?\\
+
+## Borrowing
+
+事實上我們可以使用 借的方式，讓某個變數跟他借所有權，等到他消失的時候在還回去
+
+```rust
+fn test(temp: &String){
+  println!("{}", temp.len())
+}
+
+fn main(){
+  let j = String::from("hello world");
+  test(&j)
+  // j is invaild here
+}
+```
+
+這實際上就是 Rust的相關概念的簡化版!
+
+## But Why?
+
+Well，這問題蠻複雜的，需要從作業系統的記憶體管理這方面去理解。
+
+前面有說到，heap的空間是動態分配的，這代表我們需要告知系統我們要多少，還有不需要時我們要告訴系統我們不要了。
+
+這在C當中是使用 malloc(ptr) 來要heap空間，以及 free(ptr)來告訴系統不要了。
+
+今天會有個問題，使用者很笨啊，malloc後會忘記要free，不然就是free了兩次以上，這明顯是不行的吧!\
+那我們今天有個作法，就是當這東西不會被用的時候,我們就自動free他。
+
+```c
+int main(){
+  char* str = malloc(4);
+  strcpy(str, "hi!");
+  ......
+
+  // auto free str here; // this is an exanple code how rust may handle free
+  free(str);
+  return 0;
+}
+```
+
+但是這又有個新的問題啊，假設今天我們程式長成這樣，不就會free兩次:
+
+```c
+int main(){
+  char* str = malloc(4);
+  strcpy(str, "hi!");
+  char* hi = str; // hi equal to address of str
+
+  ......
+
+  // auto free str,hi here; // this is an exanple code how rust may handle free
+  free(str);
+  free(hi);
+  return 0;
+}
+```
+
+這就是所有權的精隨所在，在rust中 hi = str ，就會把資料的所有權人轉給hi ，也就代表str沒有任何擁有資料了，無效了，自然也不會在用到。
+
+也就是說 實際流程會長成這樣
+
+```c
+fn main(){
+
+  let j = String:: from("hi!");
+  let i = j; // move ownership to i
+
+  // i is vaild here, but j is invaild here!
+} // free i here , and j is invaild, so we don't need to free it.
+```
+
+```c
+int main(){
+  char* j = malloc(4);
+  strcpy(j, "hi!");
+  char* i = j; // change owner to i
+
+  ......
+
+  // free(j); j is not owner,so we don't free.
+  free(i); // i is owner, so we free it.
+  return 0;
+}
+```
+
+## **讓我們更深入一點**
+
+\
+那麼我們先來說 **借用** 在C語言中的概念
+
+```rust
+fn main(){
+  let i = String:: from("hi!");;
+  let j = &i; // borrow here!
+  .... // we don't use i and modified j here
+
+  // j return back
+  // i is vaild here
+} // free i here.
+```
+
+此Rust程式會對應到此C程式
+
+```c
+int main(){
+  char* i = malloc(4);
+  strcpy(i, "hi!");
+
+  {
+    char* j = i; // borrorw
+    .......... // we don't use str and modified j here
+    i = j; // return back to owner
+  }
+// actually we don't do it in C or ASM, this part just to make use understand easily by intention.
+
+  free(i); // i is owner
+  return 0;
+}
+```
+
+這邊其實都還好理解，就是一個借用在還回去的過程而已。
+
+那假設今天的程式可以讓他改變(包含其大小、內容)，程式又會怎樣變?
+
+```rust
+fn main(){
+  let mut i = String:: from("hi!");
+  let j = &mut i;
+  *j = String::from("hi1!");
+  // return back j to i
+  let k = & i;
+  println!("{}",k);
+
+  // k return back
+  // i is vaild here
+} // free i here.
+
+```
+
+對應到C語言 則是會長成這樣
+
+```c
+int main(){
+  char * i = malloc(4);
+  strcpy(i, "hi!");
+
+  {
+    char * j = i; // borrorw
+    free(j); // old we don't use anymore
+    j = malloc(5);
+    strcpy(j, "hi1!"); // new
+    i = j; // return back to owner
+  }
+  // actually we don't do it in C or ASM, this part just to make use understand easily by intention.
+  {
+    char* k = i; // borrorw
+    printf("%s\n",k);
+    i = k; // return back to owner
+  }
+  free(i); // i is owner
+  return 0;
+} // free i
+```
+
+重要的來了，假如今天我們用出下方程式來，編譯器會報錯，為何？不妨讓我們試著轉成C語言看看:
+
+```rust
+fn main(){
+  let mut i = String:: from("hi!");
+  let j = & mut i;
+  let k = & i;
+  *j = String:: from("hi1!");
+  // return back j to i
+  println!("{}", k);
+
+  // i is vaild here
+} // free i here.
+
+```
+
+這邊會報錯 錯誤訊息為:
+
+```
+error[E0502]: cannot borrow `i` as immutable because it is also borrowed as mutable
+ --> src/main.rs:4:11
+  |
+3 |   let j = &mut i;
+  |           ------ mutable borrow occurs here
+4 |   let k = & i;
+  |           ^^^ immutable borrow occurs here
+5 |   *j = String::from("hi1!");
+  |   -- mutable borrow later used here
+
+For more information about this error, try `rustc --explain E0502`.
+```
+
+```c
+int main(){
+  char * i = malloc(4);
+  strcpy(i, "hi!");
+
+  {
+    char * k = i; // borrorw
+    char * j = i; // borrorw
+    free(j); // old and we don't use anymore
+    j = malloc(5);
+    strcpy(j, "hi1!"); // new
+    i = j; // return back to owner
+    printf("%s\n", k); // You print an address that have been free? WTF Bro!
+    i = k; // hey yo! k have been free
+  }
+  free(i); // WTF!
+  return 0;
+}
+```
+
+有沒有發現我們對原本i的heap free了兩次，也難怪編譯器要擋你，這也是這東西設計巧妙的地方!
